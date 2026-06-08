@@ -165,12 +165,15 @@
             justify-content: center;
             align-items: center;
             box-sizing: border-box;
+            /* ⚠️ 모바일 브라우저의 터치 스크롤 간섭을 강제로 끄는 핵심 코드 */
+            touch-action: none; 
         }
 
         svg {
             width: 250px;
             height: 250px;
             overflow: visible;
+            touch-action: none;
         }
 
         .pizza-bg { fill: #fff3b0; stroke: #e07a5f; stroke-width: 6px; }
@@ -178,7 +181,13 @@
         .pizza-slice.colored { fill: #ffb3c1 !important; }
         
         .interactive-line { stroke: var(--accent-color); stroke-width: 4px; pointer-events: none; }
+        
+        /* 둥근 조절 단추 디자인 원상 복구 (기존처럼 작고 예쁘게) */
         .handle-circle { fill: var(--accent-color); stroke: white; stroke-width: 2px; cursor: pointer; }
+        
+        /* 눈에 안 보이는 자석 터치 패드 */
+        .touch-pad { fill: transparent; cursor: pointer; }
+
         .grid-line { stroke: #e07a5f; stroke-width: 1.5px; }
 
         .radial-grid-line {
@@ -320,7 +329,7 @@
         function switchMode(mode) {
             currentMode = mode;
             document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
+            if(event) event.target.classList.add('active');
             signalBox.innerText = '';
 
             if (mode === 'act1') {
@@ -446,10 +455,17 @@
         }
 
         function createAct1Handle(cx, cy, index) {
-            const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            handle.setAttribute("cx", cx); handle.setAttribute("cy", cy); 
-            handle.setAttribute("r", 18); // [수정] 터치 인식 범위를 대폭 확장
-            handle.setAttribute("class", "handle-circle");
+            // 1. 눈에 보이는 작은 예쁜 단추원 (크기 6으로 축소)
+            const visibleHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            visibleHandle.setAttribute("cx", cx); visibleHandle.setAttribute("cy", cy); 
+            visibleHandle.setAttribute("r", 6); 
+            visibleHandle.setAttribute("class", "handle-circle");
+
+            // 2. 눈에 안 보이는 넓은 자석 터치 패널 생성 (크기 24)
+            const touchPad = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            touchPad.setAttribute("cx", cx); touchPad.setAttribute("cy", cy); 
+            touchPad.setAttribute("r", 24); 
+            touchPad.setAttribute("class", "touch-pad");
 
             const startDrag = (e) => {
                 e.preventDefault();
@@ -469,7 +485,6 @@
                 };
 
                 const endHandler = () => {
-                    // [수정] 이벤트가 누적되지 않도록 완전히 제거
                     window.removeEventListener('mousemove', moveHandler);
                     window.removeEventListener('touchmove', moveHandler);
                     window.removeEventListener('mouseup', endHandler);
@@ -482,9 +497,12 @@
                 window.addEventListener('touchend', endHandler);
             };
 
-            handle.addEventListener('mousedown', startDrag);
-            handle.addEventListener('touchstart', startDrag, {passive: false});
-            linesLayer.appendChild(handle);
+            // 터치 이벤트는 자석 터치 패널에 작동하도록 바인딩
+            touchPad.addEventListener('mousedown', startDrag);
+            touchPad.addEventListener('touchstart', startDrag, {passive: false});
+            
+            linesLayer.appendChild(visibleHandle);
+            linesLayer.appendChild(touchPad);
         }
 
         function resetAct3QuizArea() {
