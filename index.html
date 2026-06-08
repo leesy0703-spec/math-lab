@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3학년 1반 수학 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4ea8de;
+            --secondary-color: #56cfe1;
+            --accent-color: #f72585;
+            --bg-color: #f8f9fa;
+        }
+
+        /* 스크롤 발생을 원천 차단하기 위한 타이트한 바디 설정 */
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: none;
+            overflow: hidden; /* 태블릿 내부 스크롤 방지 */
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        /* 구글 사이트 내장용이므로 타이틀을 과감히 축소 */
+        header h1 {
+            font-size: 1.1rem;
+            color: #333;
+            margin: 2px 0 6px 0;
+            text-align: center;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+
+        .btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn-mode {
+            background-color: #fff;
+            color: #555;
+            border: 2px solid #ddd;
+        }
+
+        .btn-mode.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .control-panel {
+            background: white;
+            padding: 8px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            width: 96%;
+            max-width: 440px;
+            margin-bottom: 6px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .instruction {
+            font-size: 0.8rem;
+            color: #444;
+            background: #eef8ff;
+            padding: 6px;
+            border-radius: 4px;
+            border-left: 3px solid var(--primary-color);
+            font-weight: bold;
+            line-height: 1.3;
+            margin-bottom: 6px;
+            text-align: left;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+            align-items: center;
+        }
+
+        .btn-mode-a { background-color: #4caf50; color: #fff; }
+        .btn-mode-b { background-color: #9b5de5; color: #fff; }
+        .btn-reset { background-color: #6c757d; color: #fff; }
+        .btn-calc { width: 26px; height: 26px; border-radius: 50%; border: none; background: #ddd; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+        /* 타이트하게 줄인 분수 영역 */
+        .fraction-input-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+            font-size: 0.95rem;
+            font-weight: bold;
+        }
+
+        .fraction-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f1f5f9;
+            padding: 4px 12px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .fraction-box {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            vertical-align: middle;
+        }
+
+        .fraction-box input {
+            width: 32px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: bold;
+            padding: 1px;
+            border: 2px solid #94a3b8;
+            border-radius: 4px;
+        }
+
+        .fraction-box .line {
+            width: 100%;
+            height: 2px;
+            background-color: #334155;
+            margin: 2px 0;
+        }
+
+        .quiz-fraction-display {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #1e293b;
+            line-height: 1.0;
+        }
+
+        /* 캔버스 크기를 260px로 최적화하여 짤림 방지 */
+        .canvas-container {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            width: 270px;
+            height: 270px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        svg {
+            width: 250px;
+            height: 250px;
+            overflow: visible;
+        }
+
+        .pizza-bg { fill: #fff3b0; stroke: #e07a5f; stroke-width: 6px; }
+        .pizza-slice { fill: transparent; stroke: none; cursor: pointer; }
+        .pizza-slice.colored { fill: #ffb3c1 !important; }
+        
+        .interactive-line { stroke: var(--accent-color); stroke-width: 4px; }
+        .handle-circle { fill: var(--accent-color); stroke: white; stroke-width: 2px; cursor: pointer; }
+        .grid-line { stroke: #e07a5f; stroke-width: 1.5px; }
+
+        .radial-grid-line {
+            stroke: #c7c7c7;
+            stroke-width: 1px;
+            stroke-dasharray: 2, 2;
+            pointer-events: none;
+        }
+
+        .signal-box {
+            margin-top: 4px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            min-height: 20px;
+            text-align: center;
+            width: 100%;
+        }
+        .signal-success { color: #2a9d8f; }
+        .signal-fail { color: #e76f51; }
+
+        .talk-guide {
+            background: #fff0f3;
+            border: 1px solid #ffccd5;
+            border-radius: 6px;
+            padding: 6px;
+            width: 96%;
+            max-width: 440px;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            color: #c9184a;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>3학년 1반 수학 실험실 🧮</h1>
+    </header>
+
+    <div class="mode-selector">
+        <button class="btn btn-mode active" onclick="switchMode('act1')">활동1: 내 맘대로 나누기</button>
+        <button class="btn btn-mode" onclick="switchMode('act3')">활동3: 나만의 분수 퀴즈</button>
+    </div>
+
+    <div class="control-panel">
+        <div id="instruction-text" class="instruction">
+            [활동1] 칼선을 추가해 빵을 자르고 색칠해 보세요. 짝꿍 조각이 공평한지 [원형 격자]를 켜서 칸수를 세어보며 검증해 보세요!
+        </div>
+        
+        <div id="act1-controls" class="action-bar">
+            <button class="btn" style="background-color: #70e000; color: white;" onclick="addCustomLine()">+ 칼선 추가</button>
+            <button class="btn" style="background-color: #f4a261; color: white;" onclick="toggleRadialGrid()">원형 격자</button>
+            <button class="btn" style="background-color: #e63946; color: white;" onclick="checkAct1Accuracy()">공평함 검증</button>
+            <button class="btn" style="background-color: #6c757d; color: white;" onclick="resetAct1()">처음부터</button>
+        </div>
+
+        <div id="act3-maker-controls" class="action-bar" style="display: none;">
+            <span style="font-size:0.85rem; font-weight:bold;">등분할 설정: </span>
+            <button class="btn-calc" onclick="changeAct3Divisions(-1)">-</button>
+            <span id="division-count" style="font-weight:bold; width:16px; font-size:0.9rem;">4</span>
+            <button class="btn-calc" onclick="changeAct3Divisions(1)">+</button>
+        </div>
+
+        <div id="act3-fraction-area" class="fraction-input-area" style="display: none;">
+            <span style="font-size:0.85rem;">분수 입력: </span>
+            <div class="fraction-container" id="fraction-visual-container">
+                <div class="fraction-box">
+                    <input type="number" id="input-numerator" min="1" max="12">
+                    <div class="line"></div>
+                    <input type="number" id="input-denominator" min="2" max="12">
+                </div>
+            </div>
+        </div>
+
+        <div id="act3-maker-buttons" class="action-bar" style="display: none;">
+            <button class="btn btn-mode-a" onclick="publishQuiz('A')">👉 도형문제 내기</button>
+            <button class="btn btn-mode-b" onclick="publishQuiz('B')">👉 분수문제 내기</button>
+        </div>
+
+        <div id="act3-solver-controls" class="action-bar" style="display: none;">
+            <div id="solver-calc-box" style="display:none; margin-right: 4px;">
+                <span style="font-size:0.85rem; font-weight:bold;">도형조절: </span>
+                <button class="btn-calc" onclick="changeAct3Divisions(-1)" style="display:inline-flex;">-</button>
+                <button class="btn-calc" onclick="changeAct3Divisions(1)" style="display:inline-flex;">+</button>
+            </div>
+            <button class="btn" style="background-color: #0077b6; color:white;" onclick="checkAct3Answer()">정답 확인 🔍</button>
+            <button class="btn btn-reset" onclick="resetAct3QuizArea()">다시 출제 🔄</button>
+        </div>
+
+        <div id="signal" class="signal-box"></div>
+    </div>
+
+    <div class="canvas-container">
+        <svg id="canvas">
+            <circle cx="125" cy="125" r="100" class="pizza-bg" />
+            <g id="slices-layer"></g>
+            <g id="radial-grid-layer" style="display: none;"></g>
+            <g id="lines-layer"></g>
+        </svg>
+    </div>
+
+    <div id="guide-box" class="talk-guide">
+        🗣️ <b>질문 미션:</b> "정말 눈으로 보기에 똑같아? <b>[원형 격자]</b>를 켜서 칸수를 세어보자!"
+    </div>
+
+    <script>
+        let currentMode = 'act1'; 
+        let quizState = 'MAKING'; 
+
+        let act1LinesData = []; 
+        let act1ColoredSlices = new Set(); 
+        let showRadialGrid = false;
+
+        let act3TargetDivisions = 4; 
+        let act3SolverDivisions = 4; 
+        let act3ColoredSlices = new Set(); 
+        let correctNumerator = 0, correctDenominator = 0, correctColoredCount = 0;
+
+        const linesLayer = document.getElementById('lines-layer');
+        const slicesLayer = document.getElementById('slices-layer');
+        const radialGridLayer = document.getElementById('radial-grid-layer');
+        const instructionText = document.getElementById('instruction-text');
+        const signalBox = document.getElementById('signal');
+        const guideBox = document.getElementById('guide-box');
+
+        const act1Controls = document.getElementById('act1-controls');
+        const act3MakerControls = document.getElementById('act3-maker-controls');
+        const act3FractionArea = document.getElementById('act3-fraction-area');
+        const act3MakerButtons = document.getElementById('act3-maker-buttons');
+        const act3SolverControls = document.getElementById('act3-solver-controls');
+        const solverCalcBox = document.getElementById('solver-calc-box');
+        const fractionVisualContainer = document.getElementById('fraction-visual-container');
+
+        createRadialGridLines();
+        resetAct1();
+
+        function switchMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            signalBox.innerText = '';
+
+            if (mode === 'act1') {
+                instructionText.innerHTML = "[활동1] 칼선을 추가해 빵을 자르고 색칠해 보세요. 짝꿍 조각이 공평한지 [원형 격자]를 켜서 칸수를 세어보며 검증해 보세요!";
+                act1Controls.style.display = 'flex';
+                act3MakerControls.style.display = 'none';
+                act3FractionArea.style.display = 'none';
+                act3MakerButtons.style.display = 'none';
+                act3SolverControls.style.display = 'none';
+                radialGridLayer.style.display = showRadialGrid ? 'block' : 'none';
+                guideBox.innerHTML = `🗣️ <b>질문 미션:</b> "정말 눈으로 보기에 똑같아? <b>[원형 격자]</b>를 켜서 칸수를 세어보자!"`;
+                resetAct1();
+            } else {
+                radialGridLayer.style.display = 'none'; 
+                resetAct3QuizArea();
+            }
+        }
+
+        function createRadialGridLines() {
+            radialGridLayer.innerHTML = '';
+            const totalGrid = 24; 
+            for (let i = 0; i < totalGrid; i++) {
+                let angle = (360 / totalGrid) * i;
+                let rad = (angle - 90) * Math.PI / 180;
+                let x = 125 + 100 * Math.cos(rad);
+                let y = 125 + 100 * Math.sin(rad);
+
+                let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", 125); line.setAttribute("y1", 125);
+                line.setAttribute("x2", x); line.setAttribute("y2", y);
+                line.setAttribute("class", "radial-grid-line");
+                radialGridLayer.appendChild(line);
+            }
+        }
+
+        function toggleRadialGrid() {
+            showRadialGrid = !showRadialGrid;
+            radialGridLayer.style.display = showRadialGrid ? 'block' : 'none';
+        }
+
+        function resetAct1() {
+            act1LinesData = [];
+            act1ColoredSlices.clear();
+            signalBox.innerText = '';
+            updateAct1Visuals();
+        }
+
+        function addCustomLine() {
+            if (act1LinesData.length >= 6) return;
+            let newAngle = (act1LinesData.length * 55) % 180; 
+            act1LinesData.push(newAngle);
+            act1ColoredSlices.clear();
+            signalBox.innerText = '';
+            updateAct1Visuals();
+        }
+
+        function checkAct1Accuracy() {
+            if (act1LinesData.length === 0) {
+                signalBox.innerHTML = "<span class='signal-fail'>먼저 [+ 칼선 추가]를 눌러주세요!</span>";
+                return;
+            }
+            let allAngles = [];
+            act1LinesData.forEach(a => { allAngles.push(a); allAngles.push(a + 180); });
+            allAngles.sort((a, b) => a - b);
+
+            let text = " 비율: ";
+            let isPerfect = true;
+            let firstDiff = (allAngles[1] - allAngles[0]);
+            
+            for(let i=0; i<allAngles.length; i++) {
+                let d = allAngles[(i+1)%allAngles.length] - allAngles[i];
+                if(d<0) d+=360;
+                if(Math.abs(d - firstDiff) > 6) isPerfect = false; 
+            }
+
+            if(isPerfect) {
+                signalBox.innerHTML = `<span class='signal-success'>🎉 완벽하게 크기가 같고 공평합니다!</span>`;
+            } else {
+                signalBox.innerHTML = `<span class='signal-fail'>⚠️ 조각 크기가 달라요! 격자를 켜서 맞춰보세요.</span>`;
+            }
+        }
+
+        function updateAct1Visuals() {
+            linesLayer.innerHTML = '';
+            slicesLayer.innerHTML = '';
+
+            let allAngles = [];
+            act1LinesData.forEach(a => { allAngles.push(a); allAngles.push(a + 180); });
+            allAngles.sort((a, b) => a - b);
+
+            if (allAngles.length > 0) {
+                for (let i = 0; i < allAngles.length; i++) {
+                    let start = allAngles[i];
+                    let end = allAngles[(i + 1) % allAngles.length];
+                    if (end < start) end += 360;
+
+                    const pathD = getSlicePath(125, 125, 100, start, end);
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    path.setAttribute("d", pathD);
+                    path.setAttribute("class", "pizza-slice" + (act1ColoredSlices.has(i) ? " colored" : ""));
+
+                    path.addEventListener('click', () => {
+                        if (act1ColoredSlices.has(i)) { act1ColoredSlices.delete(i); } 
+                        else { act1ColoredSlices.add(i); }
+                        updateAct1Visuals();
+                    });
+                    slicesLayer.appendChild(path);
+                }
+            }
+
+            act1LinesData.forEach((angle, index) => {
+                const rad = (angle - 90) * Math.PI / 180;
+                const x1 = 125 + 100 * Math.cos(rad); const y1 = 125 + 100 * Math.sin(rad);
+                const x2 = 125 - 100 * Math.cos(rad); const y2 = 125 - 100 * Math.sin(rad);
+
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+                line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+                line.setAttribute("class", "interactive-line");
+                linesLayer.appendChild(line);
+
+                createAct1Handle(x1, y1, index);
+            });
+        }
+
+        function createAct1Handle(cx, cy, index) {
+            const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            handle.setAttribute("cx", cx); handle.setAttribute("cy", cy); handle.setAttribute("r", 12); // 터치 반경 확대
+            handle.setAttribute("class", "handle-circle");
+
+            const startDrag = (e) => {
+                e.preventDefault();
+                signalBox.innerText = ''; 
+                const moveHandler = (evt) => {
+                    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+                    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+                    const rect = canvas.getBoundingClientRect();
+                    const x = clientX - rect.left; const y = clientY - rect.top;
+                    
+                    let angleDeg = Math.atan2(y - 125, x - 125) * 180 / Math.PI + 90;
+                    if (angleDeg < 0) angleDeg += 180; 
+                    
+                    act1LinesData[index] = angleDeg % 180;
+                    updateAct1Visuals();
+                };
+                const endHandler = () => {
+                    window.removeEventListener('mousemove', moveHandler); window.removeEventListener('touchmove', moveHandler);
+                    window.removeEventListener('mouseup', endHandler); window.removeEventListener('touchend', endHandler);
+                };
+                window.addEventListener('mousemove', moveHandler); window.addEventListener('touchmove', moveHandler, {passive: false});
+                window.addEventListener('mouseup', endHandler); window.addEventListener('touchend', endHandler);
+            };
+            handle.addEventListener('mousedown', startDrag); handle.addEventListener('touchstart', startDrag, {passive: false});
+            linesLayer.appendChild(handle);
+        }
+
+        function resetAct3QuizArea() {
+            quizState = 'MAKING';
+            act3TargetDivisions = 4;
+            act3ColoredSlices.clear();
+
+            instructionText.innerHTML = "<b>[출제]</b> 몇 등분할지 고르고 색칠한 뒤, 정답 분수를 적고 출제 버튼을 누르세요.";
+            guideBox.innerHTML = `🗣️ <b>질문 미션:</b> "내가 만든 문제를 보고 정답을 맞춰봐! 왜 그렇게 생각했어?"`;
+            
+            act3FractionArea.firstElementChild.innerText = "분수 입력: ";
+            fractionVisualContainer.innerHTML = `
+                <div class="fraction-box">
+                    <input type="number" id="input-numerator" min="1" max="12">
+                    <div class="line"></div>
+                    <input type="number" id="input-denominator" min="2" max="12">
+                </div>
+            `;
+            document.getElementById('division-count').innerText = act3TargetDivisions;
+
+            act1Controls.style.display = 'none';
+            act3MakerControls.style.display = 'flex';
+            act3FractionArea.style.display = 'flex';
+            act3MakerButtons.style.display = 'flex';
+            act3SolverControls.style.display = 'none';
+            
+            renderAct3Pizza(act3TargetDivisions);
+        }
+
+        function changeAct3Divisions(amount) {
+            if (quizState === 'MAKING') {
+                act3TargetDivisions += amount;
+                if (act3TargetDivisions < 2) act3TargetDivisions = 2;
+                if (act3TargetDivisions > 12) act3TargetDivisions = 12;
+                document.getElementById('division-count').innerText = act3TargetDivisions;
+                act3ColoredSlices.clear();
+                renderAct3Pizza(act3TargetDivisions);
+            } else if (quizState === 'MODE_B') {
+                act3SolverDivisions += amount;
+                if (act3SolverDivisions < 2) act3SolverDivisions = 2;
+                if (act3SolverDivisions > 12) act3SolverDivisions = 12;
+                act3ColoredSlices.clear();
+                renderAct3Pizza(act3SolverDivisions);
+            }
+            signalBox.innerHTML = '';
+        }
+
+        function renderAct3Pizza(divsCount) {
+            slicesLayer.innerHTML = '';
+            linesLayer.innerHTML = '';
+
+            const step = 360 / divsCount;
+            for (let i = 0; i < divsCount; i++) {
+                let start = i * step;
+                let end = (i + 1) * step;
+
+                const pathD = getSlicePath(125, 125, 100, start, end);
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                path.setAttribute("d", pathD);
+                path.setAttribute("class", "pizza-slice" + (act3ColoredSlices.has(i) ? " colored" : ""));
+                
+                if (quizState === 'MAKING' || quizState === 'MODE_B') {
+                    path.addEventListener('click', () => {
+                        if (act3ColoredSlices.has(i)) { act3ColoredSlices.delete(i); } 
+                        else { act3ColoredSlices.add(i); }
+                        renderAct3Pizza(divsCount);
+                        signalBox.innerHTML = '';
+                    });
+                }
+                slicesLayer.appendChild(path);
+
+                const rad = (start - 90) * Math.PI / 180;
+                const lx = 125 + 100 * Math.cos(rad); const ly = 125 + 100 * Math.sin(rad);
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", 125); line.setAttribute("y1", 125); line.setAttribute("x2", lx); line.setAttribute("y2", ly);
+                line.setAttribute("class", "grid-line");
+                linesLayer.appendChild(line);
+            }
+        }
+
+        function publishQuiz(type) {
+            const numVal = parseInt(document.getElementById('input-numerator').value);
+            const denVal = parseInt(document.getElementById('input-denominator').value);
+            correctColoredCount = act3ColoredSlices.size;
+
+            if (isNaN(numVal) || isNaN(denVal) || correctColoredCount === 0) {
+                alert("영역을 색칠하고 정답 분수 칸을 채워주세요!");
+                return;
+            }
+
+            correctNumerator = numVal;
+            correctDenominator = denVal;
+            quizState = type === 'A' ? 'MODE_A' : 'MODE_B';
+
+            act3MakerControls.style.display = 'none';
+            act3MakerButtons.style.display = 'none';
+            act3SolverControls.style.display = 'flex';
+            signalBox.innerHTML = '';
+
+            if (quizState === 'MODE_A') {
+                instructionText.innerHTML = "🎯 <b>[도형 문제]</b> 짝꿍이 만든 조각을 보고, 알맞은 분수를 채운 뒤 [정답 확인]을 누르세요!";
+                fractionVisualContainer.innerHTML = `
+                    <div class="fraction-box">
+                        <input type="number" id="input-numerator" min="1" max="12">
+                        <div class="line"></div>
+                        <input type="number" id="input-denominator" min="2" max="12">
+                    </div>
+                `;
+                solverCalcBox.style.display = 'none';
+                renderAct3Pizza(act3TargetDivisions); 
+            } else {
+                instructionText.innerHTML = "🎯 <b>[분수 문제]</b> 아래 분수를 확인하고, <b>도형 조절(+/-)과 색칠 칸 터치</b>로 피자를 완성하세요!";
+                act3FractionArea.firstElementChild.innerText = "문제 분수: ";
+                fractionVisualContainer.innerHTML = `
+                    <div class="fraction-box quiz-fraction-display">
+                        <div>${correctNumerator}</div>
+                        <div class="line" style="width:20px; height:2px; background:#334155;"></div>
+                        <div>${correctDenominator}</div>
+                    </div>
+                `;
+                solverCalcBox.style.display = 'block';
+                act3SolverDivisions = 4;
+                act3ColoredSlices.clear();
+                renderAct3Pizza(act3SolverDivisions);
+            }
+        }
+
+        function checkAct3Answer() {
+            let isCorrect = false;
+            if (quizState === 'MODE_A') {
+                const sNum = parseInt(document.getElementById('input-numerator').value);
+                const sDen = parseInt(document.getElementById('input-denominator').value);
+                if (sNum === correctNumerator && sDen === correctDenominator) isCorrect = true;
+            } else if (quizState === 'MODE_B') {
+                if (act3SolverDivisions === correctDenominator && act3ColoredSlices.size === correctNumerator) isCorrect = true;
+            }
+
+            if (isCorrect) {
+                signalBox.innerHTML = "<span class='signal-success'>🎉 정답입니다! 하이파이브 하세요! 🎉</span>";
+            } else {
+                signalBox.innerHTML = "<span class='signal-fail'>🤔 조각과 분수를 다시 꼼꼼히 맞춰볼까요?</span>";
+            }
+        }
+
+        function getSlicePath(cx, cy, r, startAngle, endAngle) {
+            const startRad = (startAngle - 90) * Math.PI / 180; const endRad = (endAngle - 90) * Math.PI / 180;
+            const x1 = cx + r * Math.cos(startRad); const y1 = cy + r * Math.sin(startRad);
+            const x2 = cx + r * Math.cos(endRad); const y2 = cy + r * Math.sin(endRad);
+            const largeArcFlag = (endAngle - startAngle) > 180 ? 1 : 0;
+            return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
+        }
+    </script>
+</body>
+</html>
