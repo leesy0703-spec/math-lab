@@ -12,7 +12,6 @@
             --bg-color: #f8f9fa;
         }
 
-        /* 스크롤 발생을 원천 차단하기 위한 타이트한 바디 설정 */
         body {
             font-family: 'Malgun Gothic', sans-serif;
             background-color: var(--bg-color);
@@ -21,13 +20,14 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             user-select: none;
-            overflow: hidden; /* 태블릿 내부 스크롤 방지 */
+            overflow: hidden;
             height: 100vh;
+            height: -webkit-fill-available;
             box-sizing: border-box;
         }
 
-        /* 구글 사이트 내장용이므로 타이틀을 과감히 축소 */
         header h1 {
             font-size: 1.1rem;
             color: #333;
@@ -103,7 +103,6 @@
         .btn-reset { background-color: #6c757d; color: #fff; }
         .btn-calc { width: 26px; height: 26px; border-radius: 50%; border: none; background: #ddd; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        /* 타이트하게 줄인 분수 영역 */
         .fraction-input-area {
             display: flex;
             justify-content: center;
@@ -155,14 +154,13 @@
             line-height: 1.0;
         }
 
-        /* 캔버스 크기를 260px로 최적화하여 짤림 방지 */
         .canvas-container {
             position: relative;
             background: white;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-            width: 270px;
-            height: 270px;
+            width: 260px;
+            height: 260px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -179,7 +177,7 @@
         .pizza-slice { fill: transparent; stroke: none; cursor: pointer; }
         .pizza-slice.colored { fill: #ffb3c1 !important; }
         
-        .interactive-line { stroke: var(--accent-color); stroke-width: 4px; }
+        .interactive-line { stroke: var(--accent-color); stroke-width: 4px; pointer-events: none; }
         .handle-circle { fill: var(--accent-color); stroke: white; stroke-width: 2px; cursor: pointer; }
         .grid-line { stroke: #e07a5f; stroke-width: 1.5px; }
 
@@ -306,6 +304,7 @@
         const instructionText = document.getElementById('instruction-text');
         const signalBox = document.getElementById('signal');
         const guideBox = document.getElementById('guide-box');
+        const canvas = document.getElementById('canvas');
 
         const act1Controls = document.getElementById('act1-controls');
         const act3MakerControls = document.getElementById('act3-maker-controls');
@@ -387,7 +386,6 @@
             act1LinesData.forEach(a => { allAngles.push(a); allAngles.push(a + 180); });
             allAngles.sort((a, b) => a - b);
 
-            let text = " 비율: ";
             let isPerfect = true;
             let firstDiff = (allAngles[1] - allAngles[0]);
             
@@ -449,12 +447,14 @@
 
         function createAct1Handle(cx, cy, index) {
             const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            handle.setAttribute("cx", cx); handle.setAttribute("cy", cy); handle.setAttribute("r", 12); // 터치 반경 확대
+            handle.setAttribute("cx", cx); handle.setAttribute("cy", cy); 
+            handle.setAttribute("r", 18); // [수정] 터치 인식 범위를 대폭 확장
             handle.setAttribute("class", "handle-circle");
 
             const startDrag = (e) => {
                 e.preventDefault();
                 signalBox.innerText = ''; 
+                
                 const moveHandler = (evt) => {
                     const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
                     const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
@@ -467,14 +467,23 @@
                     act1LinesData[index] = angleDeg % 180;
                     updateAct1Visuals();
                 };
+
                 const endHandler = () => {
-                    window.removeEventListener('mousemove', moveHandler); window.removeEventListener('touchmove', moveHandler);
-                    window.removeEventListener('mouseup', endHandler); window.removeEventListener('touchend', endHandler);
+                    // [수정] 이벤트가 누적되지 않도록 완전히 제거
+                    window.removeEventListener('mousemove', moveHandler);
+                    window.removeEventListener('touchmove', moveHandler);
+                    window.removeEventListener('mouseup', endHandler);
+                    window.removeEventListener('touchend', endHandler);
                 };
-                window.addEventListener('mousemove', moveHandler); window.addEventListener('touchmove', moveHandler, {passive: false});
-                window.addEventListener('mouseup', endHandler); window.addEventListener('touchend', endHandler);
+
+                window.addEventListener('mousemove', moveHandler);
+                window.addEventListener('touchmove', moveHandler, {passive: false});
+                window.addEventListener('mouseup', endHandler);
+                window.addEventListener('touchend', endHandler);
             };
-            handle.addEventListener('mousedown', startDrag); handle.addEventListener('touchstart', startDrag, {passive: false});
+
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag, {passive: false});
             linesLayer.appendChild(handle);
         }
 
