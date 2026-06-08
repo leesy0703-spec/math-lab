@@ -165,15 +165,12 @@
             justify-content: center;
             align-items: center;
             box-sizing: border-box;
-            /* ⚠️ 모바일 브라우저의 터치 스크롤 간섭을 강제로 끄는 핵심 코드 */
-            touch-action: none; 
         }
 
         svg {
             width: 250px;
             height: 250px;
             overflow: visible;
-            touch-action: none;
         }
 
         .pizza-bg { fill: #fff3b0; stroke: #e07a5f; stroke-width: 6px; }
@@ -181,11 +178,9 @@
         .pizza-slice.colored { fill: #ffb3c1 !important; }
         
         .interactive-line { stroke: var(--accent-color); stroke-width: 4px; pointer-events: none; }
-        
-        /* 둥근 조절 단추 디자인 원상 복구 (기존처럼 작고 예쁘게) */
         .handle-circle { fill: var(--accent-color); stroke: white; stroke-width: 2px; cursor: pointer; }
         
-        /* 눈에 안 보이는 자석 터치 패드 */
+        /* 터치를 부드럽게 유도하는 투명 레이어 */
         .touch-pad { fill: transparent; cursor: pointer; }
 
         .grid-line { stroke: #e07a5f; stroke-width: 1.5px; }
@@ -455,51 +450,62 @@
         }
 
         function createAct1Handle(cx, cy, index) {
-            // 1. 눈에 보이는 작은 예쁜 단추원 (크기 6으로 축소)
+            // 눈에 보이는 단추 원크기 원래대로 축소 (반지름 7)
             const visibleHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             visibleHandle.setAttribute("cx", cx); visibleHandle.setAttribute("cy", cy); 
-            visibleHandle.setAttribute("r", 6); 
+            visibleHandle.setAttribute("r", 7); 
             visibleHandle.setAttribute("class", "handle-circle");
 
-            // 2. 눈에 안 보이는 넓은 자석 터치 패널 생성 (크기 24)
+            // 눈에 안 보이지만 터치 영역을 넓혀주는 투명 패드 (반지름 28)
             const touchPad = document.createElementNS("http://www.w3.org/2000/svg", "circle");
             touchPad.setAttribute("cx", cx); touchPad.setAttribute("cy", cy); 
-            touchPad.setAttribute("r", 24); 
+            touchPad.setAttribute("r", 28); 
             touchPad.setAttribute("class", "touch-pad");
 
-            const startDrag = (e) => {
-                e.preventDefault();
-                signalBox.innerText = ''; 
+            // 마우스/터치 통합 좌표 계산 함수
+            const handleMove = (e) => {
+                if (e.cancelable) e.preventDefault(); // 스크롤 씹힘 전면 방지
                 
-                const moveHandler = (evt) => {
-                    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-                    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-                    const rect = canvas.getBoundingClientRect();
-                    const x = clientX - rect.left; const y = clientY - rect.top;
-                    
-                    let angleDeg = Math.atan2(y - 125, x - 125) * 180 / Math.PI + 90;
-                    if (angleDeg < 0) angleDeg += 180; 
-                    
-                    act1LinesData[index] = angleDeg % 180;
-                    updateAct1Visuals();
-                };
+                let clientX, clientY;
+                if (e.touches && e.touches.length > 0) {
+                    clientX = e.touches[0].clientX;
+                    clientY = e.touches[0].clientY;
+                } else {
+                    clientX = e.clientX;
+                    clientY = e.clientY;
+                }
 
-                const endHandler = () => {
-                    window.removeEventListener('mousemove', moveHandler);
-                    window.removeEventListener('touchmove', moveHandler);
-                    window.removeEventListener('mouseup', endHandler);
-                    window.removeEventListener('touchend', endHandler);
-                };
-
-                window.addEventListener('mousemove', moveHandler);
-                window.addEventListener('touchmove', moveHandler, {passive: false});
-                window.addEventListener('mouseup', endHandler);
-                window.addEventListener('touchend', endHandler);
+                const rect = canvas.getBoundingClientRect();
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                
+                let angleDeg = Math.atan2(y - 125, x - 125) * 180 / Math.PI + 90;
+                if (angleDeg < 0) angleDeg += 180; 
+                
+                act1LinesData[index] = angleDeg % 180;
+                updateAct1Visuals();
             };
 
-            // 터치 이벤트는 자석 터치 패널에 작동하도록 바인딩
-            touchPad.addEventListener('mousedown', startDrag);
-            touchPad.addEventListener('touchstart', startDrag, {passive: false});
+            const handleEnd = () => {
+                window.removeEventListener('mousemove', handleMove);
+                window.removeEventListener('touchmove', handleMove);
+                window.removeEventListener('mouseup', handleEnd);
+                window.removeEventListener('touchend', handleEnd);
+            };
+
+            const handleStart = (e) => {
+                if (e.cancelable) e.preventDefault();
+                signalBox.innerText = ''; 
+
+                window.addEventListener('mousemove', handleMove, { passive: false });
+                window.addEventListener('touchmove', handleMove, { passive: false });
+                window.addEventListener('mouseup', handleEnd);
+                window.addEventListener('touchend', handleEnd);
+            };
+
+            // 투명 패드에 이벤트를 걸어 넉넉한 터치 환경 제공
+            touchPad.addEventListener('mousedown', handleStart);
+            touchPad.addEventListener('touchstart', handleStart, { passive: false });
             
             linesLayer.appendChild(visibleHandle);
             linesLayer.appendChild(touchPad);
