@@ -22,9 +22,9 @@
             align-items: center;
             justify-content: center;
             user-select: none;
-            overflow: hidden;
-            height: 100vh;
-            height: -webkit-fill-available;
+            overflow-x: hidden;
+            overflow-y: auto;
+            min-height: 100vh;
             box-sizing: border-box;
         }
 
@@ -165,17 +165,13 @@
             justify-content: center;
             align-items: center;
             box-sizing: border-box;
-            
-            /* ⚠️ 모바일 브라우저의 스크롤 방해를 하드웨어 레벨에서 차단 */
-            touch-action: none !important;
-            -webkit-user-select: none;
+            margin-bottom: 8px;
         }
 
         svg {
             width: 250px;
             height: 250px;
             overflow: visible;
-            touch-action: none !important;
         }
 
         .pizza-bg { fill: #fff3b0; stroke: #e07a5f; stroke-width: 6px; }
@@ -183,13 +179,6 @@
         .pizza-slice.colored { fill: #ffb3c1 !important; }
         
         .interactive-line { stroke: var(--accent-color); stroke-width: 4px; pointer-events: none; }
-        
-        /* 조절 단추 디자인 원래대로 예쁘게 컴백 */
-        .handle-circle { fill: var(--accent-color); stroke: white; stroke-width: 2px; cursor: pointer; }
-        
-        /* 눈에 안 보이지만 터치 반경을 넓혀주는 마법의 투명 레이어 */
-        .touch-pad { fill: transparent; stroke: none; cursor: pointer; }
-
         .grid-line { stroke: #e07a5f; stroke-width: 1.5px; }
 
         .radial-grid-line {
@@ -197,6 +186,44 @@
             stroke-width: 1px;
             stroke-dasharray: 2, 2;
             pointer-events: none;
+        }
+
+        /* 🎛️ 모바일 안전 슬라이더 조절판 스타일 */
+        .slider-panel {
+            background: white;
+            padding: 8px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            width: 96%;
+            max-width: 440px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #fff0f3;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ffccd5;
+        }
+
+        .slider-label {
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            min-width: 50px;
+        }
+
+        .slider-input {
+            flex: 1;
+            accent-color: var(--accent-color);
+            cursor: pointer;
+            height: 6px;
         }
 
         .signal-box {
@@ -221,6 +248,7 @@
             font-size: 0.75rem;
             color: #c9184a;
             box-sizing: border-box;
+            text-align: center;
         }
     </style>
 </head>
@@ -292,6 +320,9 @@
         </svg>
     </div>
 
+    <div id="slider-panel" class="slider-panel">
+        </div>
+
     <div id="guide-box" class="talk-guide">
         🗣️ <b>질문 미션:</b> "정말 눈으로 보기에 똑같아? <b>[원형 격자]</b>를 켜서 칸수를 세어보자!"
     </div>
@@ -315,7 +346,7 @@
         const instructionText = document.getElementById('instruction-text');
         const signalBox = document.getElementById('signal');
         const guideBox = document.getElementById('guide-box');
-        const canvas = document.getElementById('canvas');
+        const sliderPanel = document.getElementById('slider-panel');
 
         const act1Controls = document.getElementById('act1-controls');
         const act3MakerControls = document.getElementById('act3-maker-controls');
@@ -337,6 +368,7 @@
             if (mode === 'act1') {
                 instructionText.innerHTML = "[활동1] 칼선을 추가해 빵을 자르고 색칠해 보세요. 짝꿍 조각이 공평한지 [원형 격자]를 켜서 칸수를 세어보며 검증해 보세요!";
                 act1Controls.style.display = 'flex';
+                sliderPanel.style.display = 'flex';
                 act3MakerControls.style.display = 'none';
                 act3FractionArea.style.display = 'none';
                 act3MakerButtons.style.display = 'none';
@@ -346,6 +378,7 @@
                 resetAct1();
             } else {
                 radialGridLayer.style.display = 'none'; 
+                sliderPanel.style.display = 'none';
                 resetAct3QuizArea();
             }
         }
@@ -376,16 +409,55 @@
             act1LinesData = [];
             act1ColoredSlices.clear();
             signalBox.innerText = '';
+            buildSlidersUI();
             updateAct1Visuals();
         }
 
         function addCustomLine() {
             if (act1LinesData.length >= 6) return;
-            let newAngle = (act1LinesData.length * 55) % 180; 
+            // 새 칼선 추가 시 기본 각도 분배
+            let newAngle = (act1LinesData.length * 45) % 180; 
             act1LinesData.push(newAngle);
             act1ColoredSlices.clear();
             signalBox.innerText = '';
+            buildSlidersUI();
             updateAct1Visuals();
+        }
+
+        // 🎛️ 칼선 개수에 맞춰 슬라이더 막대를 그려주는 함수
+        function buildSlidersUI() {
+            sliderPanel.innerHTML = '';
+            if (act1LinesData.length === 0) {
+                sliderPanel.innerHTML = `<div style="text-align:center; color:#888; font-size:0.8rem; padding:10px;">[+ 칼선 추가] 버튼을 누르면 조절 바가 나타납니다.</div>`;
+                return;
+            }
+
+            act1LinesData.forEach((angle, index) => {
+                const container = document.createElement('div');
+                container.className = 'slider-container';
+
+                const label = document.createElement('span');
+                label.className = 'slider-label';
+                label.innerText = `칼선 ${index + 1}`;
+
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.className = 'slider-input';
+                slider.min = '0';
+                slider.max = '180';
+                slider.value = Math.round(angle);
+
+                // 슬라이더를 움직이면 실시간으로 해당 칼선의 각도가 변함 (모바일 100% 작동)
+                slider.addEventListener('input', (e) => {
+                    act1LinesData[index] = parseInt(e.target.value);
+                    updateAct1Visuals();
+                    signalBox.innerText = '';
+                });
+
+                container.appendChild(label);
+                container.appendChild(slider);
+                sliderPanel.appendChild(container);
+            });
         }
 
         function checkAct1Accuracy() {
@@ -403,13 +475,13 @@
             for(let i=0; i<allAngles.length; i++) {
                 let d = allAngles[(i+1)%allAngles.length] - allAngles[i];
                 if(d<0) d+=360;
-                if(Math.abs(d - firstDiff) > 6) isPerfect = false; 
+                if(Math.abs(d - firstDiff) > 5) isPerfect = false; 
             }
 
             if(isPerfect) {
                 signalBox.innerHTML = `<span class='signal-success'>🎉 완벽하게 크기가 같고 공평합니다!</span>`;
             } else {
-                signalBox.innerHTML = `<span class='signal-fail'>⚠️ 조각 크기가 달라요! 격자를 켜서 맞춰보세요.</span>`;
+                signalBox.innerHTML = `<span class='signal-fail'>⚠️ 조각 크기가 달라요! 조절 바를 밀어 맞춰보세요.</span>`;
             }
         }
 
@@ -441,7 +513,7 @@
                 }
             }
 
-            act1LinesData.forEach((angle, index) => {
+            act1LinesData.forEach((angle) => {
                 const rad = (angle - 90) * Math.PI / 180;
                 const x1 = 125 + 100 * Math.cos(rad); const y1 = 125 + 100 * Math.sin(rad);
                 const x2 = 125 - 100 * Math.cos(rad); const y2 = 125 - 100 * Math.sin(rad);
@@ -451,73 +523,7 @@
                 line.setAttribute("x2", x2); line.setAttribute("y2", y2);
                 line.setAttribute("class", "interactive-line");
                 linesLayer.appendChild(line);
-
-                createAct1Handle(x1, y1, index);
             });
-        }
-
-        function createAct1Handle(cx, cy, index) {
-            // 눈에 보이는 단추 원크기 (반지름 7)
-            const visibleHandle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            visibleHandle.setAttribute("cx", cx); visibleHandle.setAttribute("cy", cy); 
-            visibleHandle.setAttribute("r", 7); 
-            visibleHandle.setAttribute("class", "handle-circle");
-
-            // 눈에 안 보이지만 터치 영역을 대폭 넓혀주는 투명 패드 (반지름 30)
-            const touchPad = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            touchPad.setAttribute("cx", cx); touchPad.setAttribute("cy", cy); 
-            touchPad.setAttribute("r", 30); 
-            touchPad.setAttribute("class", "touch-pad");
-
-            // 드래그 위치 계산 핵심 함수
-            const doCalcAngle = (clientX, clientY) => {
-                const rect = canvas.getBoundingClientRect();
-                const x = clientX - rect.left;
-                const y = clientY - rect.top;
-                let angleDeg = Math.atan2(y - 125, x - 125) * 180 / Math.PI + 90;
-                if (angleDeg < 0) angleDeg += 180; 
-                act1LinesData[index] = angleDeg % 180;
-                updateAct1Visuals();
-            };
-
-            // 데스크톱 마우스 이벤트 처리
-            const onMouseMove = (e) => {
-                doCalcAngle(e.clientX, e.clientY);
-            };
-            const onMouseUp = () => {
-                window.removeEventListener('mousemove', onMouseMove);
-                window.removeEventListener('mouseup', onMouseUp);
-            };
-
-            // 모바일 터치 이벤트 처리
-            const onTouchMove = (e) => {
-                if (e.touches.length > 0) {
-                    doCalcAngle(e.touches[0].clientX, e.touches[0].clientY);
-                }
-            };
-            const onTouchEnd = () => {
-                window.removeEventListener('touchmove', onTouchMove);
-                window.removeEventListener('touchend', onTouchEnd);
-            };
-
-            // 시작 핸들러 연결
-            touchPad.addEventListener('mousedown', (e) => {
-                e.preventDefault();
-                signalBox.innerText = '';
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-            });
-
-            touchPad.addEventListener('touchstart', (e) => {
-                // 모바일 브라우저의 스크롤 가로채기를 원천 차단
-                if (e.cancelable) e.preventDefault(); 
-                signalBox.innerText = '';
-                window.addEventListener('touchmove', onTouchMove, { passive: false });
-                window.addEventListener('touchend', onTouchEnd);
-            }, { passive: false });
-            
-            linesLayer.appendChild(visibleHandle);
-            linesLayer.appendChild(touchPad);
         }
 
         function resetAct3QuizArea() {
