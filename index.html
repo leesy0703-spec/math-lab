@@ -103,6 +103,44 @@
         .btn-reset { background-color: #6c757d; color: #fff; }
         .btn-calc { width: 26px; height: 26px; border-radius: 50%; border: none; background: #ddd; font-size: 0.9rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
+        /* 도형 선택 버튼 */
+        .shape-selector {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn-shape {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 5px 8px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+            background: #fff;
+            color: #555;
+            transition: all 0.2s;
+            min-width: 44px;
+        }
+
+        .btn-shape svg {
+            width: 24px;
+            height: 24px;
+            display: block;
+        }
+
+        .btn-shape.active {
+            border-color: #f72585;
+            background: #fff0f5;
+            color: #f72585;
+        }
+
         .fraction-input-area {
             display: flex;
             justify-content: center;
@@ -168,13 +206,17 @@
             margin-bottom: 8px;
         }
 
-        svg {
+        svg#canvas {
             width: 250px;
             height: 250px;
             overflow: visible;
         }
 
         .pizza-bg { fill: #fff3b0; stroke: #e07a5f; stroke-width: 6px; }
+        .shape-bg-triangle { fill: #fff3b0; stroke: #e07a5f; stroke-width: 4px; }
+        .shape-bg-square { fill: #fff3b0; stroke: #e07a5f; stroke-width: 4px; }
+        .shape-bg-hexagon { fill: #fff3b0; stroke: #e07a5f; stroke-width: 4px; }
+
         .pizza-slice { fill: transparent; stroke: none; cursor: pointer; }
         .pizza-slice.colored { fill: #ffb3c1 !important; }
         
@@ -188,7 +230,6 @@
             pointer-events: none;
         }
 
-        /* 🎛️ 모바일 안전 슬라이더 조절판 스타일 */
         .slider-panel {
             background: white;
             padding: 8px;
@@ -250,6 +291,15 @@
             box-sizing: border-box;
             text-align: center;
         }
+
+        /* 도형별 등분 불가 안내 */
+        .shape-hint {
+            font-size: 0.7rem;
+            color: #888;
+            text-align: center;
+            margin-top: 2px;
+            min-height: 14px;
+        }
     </style>
 </head>
 <body>
@@ -275,12 +325,33 @@
             <button class="btn" style="background-color: #6c757d; color: white;" onclick="resetAct1()">처음부터</button>
         </div>
 
+        <!-- 활동3: 도형 선택 -->
+        <div id="act3-shape-selector" class="shape-selector" style="display:none;">
+            <button class="btn-shape active" id="shape-btn-circle" onclick="selectShape('circle')">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#fff3b0" stroke="#e07a5f" stroke-width="2.5"/></svg>
+                원
+            </button>
+            <button class="btn-shape" id="shape-btn-triangle" onclick="selectShape('triangle')">
+                <svg viewBox="0 0 24 24"><polygon points="12,2 22,21 2,21" fill="#fff3b0" stroke="#e07a5f" stroke-width="2.5"/></svg>
+                삼각형
+            </button>
+            <button class="btn-shape" id="shape-btn-square" onclick="selectShape('square')">
+                <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" fill="#fff3b0" stroke="#e07a5f" stroke-width="2.5"/></svg>
+                사각형
+            </button>
+            <button class="btn-shape" id="shape-btn-hexagon" onclick="selectShape('hexagon')">
+                <svg viewBox="0 0 24 24"><polygon points="12,2 21,7 21,17 12,22 3,17 3,7" fill="#fff3b0" stroke="#e07a5f" stroke-width="2.5"/></svg>
+                육각형
+            </button>
+        </div>
+
         <div id="act3-maker-controls" class="action-bar" style="display: none;">
             <span style="font-size:0.85rem; font-weight:bold;">등분할 설정: </span>
             <button class="btn-calc" onclick="changeAct3Divisions(-1)">-</button>
             <span id="division-count" style="font-weight:bold; width:16px; font-size:0.9rem;">4</span>
             <button class="btn-calc" onclick="changeAct3Divisions(1)">+</button>
         </div>
+        <div id="shape-hint" class="shape-hint"></div>
 
         <div id="act3-fraction-area" class="fraction-input-area" style="display: none;">
             <span style="font-size:0.85rem;">분수 입력: </span>
@@ -314,6 +385,7 @@
     <div class="canvas-container">
         <svg id="canvas">
             <circle cx="125" cy="125" r="100" class="pizza-bg" />
+            <g id="shape-bg-layer"></g>
             <g id="slices-layer"></g>
             <g id="radial-grid-layer" style="display: none;"></g>
             <g id="lines-layer"></g>
@@ -321,34 +393,59 @@
     </div>
 
     <div id="slider-panel" class="slider-panel">
-        </div>
+    </div>
 
     <div id="guide-box" class="talk-guide">
         🗣️ <b>질문 미션:</b> "정말 눈으로 보기에 똑같아? <b>[원형 격자]</b>를 켜서 칸수를 세어보자!"
     </div>
 
     <script>
-        let currentMode = 'act1'; 
-        let quizState = 'MAKING'; 
+        let currentMode = 'act1';
+        let quizState = 'MAKING';
 
-        let act1LinesData = []; 
-        let act1ColoredSlices = new Set(); 
+        let act1LinesData = [];
+        let act1ColoredSlices = new Set();
         let showRadialGrid = false;
 
-        let act3TargetDivisions = 4; 
-        let act3SolverDivisions = 4; 
-        let act3ColoredSlices = new Set(); 
-        let correctNumerator = 0, correctDenominator = 0, correctColoredCount = 0;
+        // 활동3 상태
+        let act3Shape = 'circle';  // 'circle' | 'triangle' | 'square' | 'hexagon'
+        let act3TargetDivisions = 4;
+        let act3SolverDivisions = 4;
+        let act3ColoredSlices = new Set();
+        let correctNumerator = 0, correctDenominator = 0;
+        let correctShape = 'circle';
+
+        // 도형별 허용 등분 수
+        const ALLOWED_DIVISIONS = {
+            circle:   [2,3,4,5,6,7,8,9,10,12],
+            triangle: [3,6,9,12],           // 삼각형: 3배수
+            square:   [2,4,8,16,           // 정사각형: 2의거듭제곱 or 4배수도 가능
+                       3,6,9,12],           // 행/열 분할 포함
+            hexagon:  [2,3,6,12]            // 육각형: 자연스러운 등분
+        };
+
+        // 실제로 지원하는 등분 수 (렌더링 가능)
+        const VALID_DIVISIONS = {
+            circle:   [2,3,4,5,6,7,8,9,10,12],
+            triangle: [3,6,9,12],
+            square:   [2,4,3,6,9,12],       // 행/열 방식
+            hexagon:  [2,3,6,12]
+        };
+
+        const SVG_CX = 125, SVG_CY = 125;
 
         const linesLayer = document.getElementById('lines-layer');
         const slicesLayer = document.getElementById('slices-layer');
+        const shapeBgLayer = document.getElementById('shape-bg-layer');
         const radialGridLayer = document.getElementById('radial-grid-layer');
         const instructionText = document.getElementById('instruction-text');
         const signalBox = document.getElementById('signal');
         const guideBox = document.getElementById('guide-box');
         const sliderPanel = document.getElementById('slider-panel');
+        const shapeHint = document.getElementById('shape-hint');
 
         const act1Controls = document.getElementById('act1-controls');
+        const act3ShapeSelector = document.getElementById('act3-shape-selector');
         const act3MakerControls = document.getElementById('act3-maker-controls');
         const act3FractionArea = document.getElementById('act3-fraction-area');
         const act3MakerButtons = document.getElementById('act3-maker-buttons');
@@ -359,6 +456,48 @@
         createRadialGridLines();
         resetAct1();
 
+        // ─── 도형 선택 ──────────────────────────────────────────
+        function selectShape(shape) {
+            act3Shape = shape;
+            document.querySelectorAll('.btn-shape').forEach(b => b.classList.remove('active'));
+            document.getElementById('shape-btn-' + shape).classList.add('active');
+
+            // 기본 등분 수를 도형의 첫 번째 유효값으로 맞춤
+            const valids = VALID_DIVISIONS[shape];
+            if (!valids.includes(act3TargetDivisions)) {
+                act3TargetDivisions = valids[0];
+            }
+            document.getElementById('division-count').innerText = act3TargetDivisions;
+            act3ColoredSlices.clear();
+            signalBox.innerHTML = '';
+            updateShapeHint();
+            renderAct3Shape(act3TargetDivisions);
+        }
+
+        function updateShapeHint() {
+            const map = {
+                circle:   '원: 2~12등분 모두 가능',
+                triangle: '삼각형: 3·6·9·12등분 가능',
+                square:   '사각형: 2·3·4·6·9·12등분 가능',
+                hexagon:  '육각형: 2·3·6·12등분 가능'
+            };
+            shapeHint.innerText = map[act3Shape] || '';
+        }
+
+        // 등분 수 변경 시 유효값으로 스냅
+        function snapToValid(current, delta, shape) {
+            const valids = VALID_DIVISIONS[shape].slice().sort((a,b)=>a-b);
+            let idx = valids.indexOf(current);
+            if (idx === -1) {
+                // 가장 가까운 값 찾기
+                idx = valids.reduce((best, v, i) => Math.abs(v-current) < Math.abs(valids[best]-current) ? i : best, 0);
+            }
+            idx += delta;
+            idx = Math.max(0, Math.min(valids.length - 1, idx));
+            return valids[idx];
+        }
+
+        // ─── 모드 전환 ──────────────────────────────────────────
         function switchMode(mode) {
             currentMode = mode;
             document.querySelectorAll('.btn-mode').forEach(btn => btn.classList.remove('active'));
@@ -368,30 +507,32 @@
             if (mode === 'act1') {
                 instructionText.innerHTML = "[활동1] 칼선을 추가해 빵을 자르고 색칠해 보세요. 짝꿍 조각이 공평한지 [원형 격자]를 켜서 칸수를 세어보며 검증해 보세요!";
                 act1Controls.style.display = 'flex';
+                act3ShapeSelector.style.display = 'none';
                 sliderPanel.style.display = 'flex';
                 act3MakerControls.style.display = 'none';
                 act3FractionArea.style.display = 'none';
                 act3MakerButtons.style.display = 'none';
                 act3SolverControls.style.display = 'none';
+                shapeHint.innerText = '';
                 radialGridLayer.style.display = showRadialGrid ? 'block' : 'none';
                 guideBox.innerHTML = `🗣️ <b>질문 미션:</b> "정말 눈으로 보기에 똑같아? <b>[원형 격자]</b>를 켜서 칸수를 세어보자!"`;
                 resetAct1();
             } else {
-                radialGridLayer.style.display = 'none'; 
+                radialGridLayer.style.display = 'none';
                 sliderPanel.style.display = 'none';
                 resetAct3QuizArea();
             }
         }
 
+        // ─── 원형 격자 ──────────────────────────────────────────
         function createRadialGridLines() {
             radialGridLayer.innerHTML = '';
-            const totalGrid = 24; 
+            const totalGrid = 24;
             for (let i = 0; i < totalGrid; i++) {
                 let angle = (360 / totalGrid) * i;
                 let rad = (angle - 90) * Math.PI / 180;
                 let x = 125 + 100 * Math.cos(rad);
                 let y = 125 + 100 * Math.sin(rad);
-
                 let line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", 125); line.setAttribute("y1", 125);
                 line.setAttribute("x2", x); line.setAttribute("y2", y);
@@ -405,18 +546,21 @@
             radialGridLayer.style.display = showRadialGrid ? 'block' : 'none';
         }
 
+        // ─── 활동1 ──────────────────────────────────────────────
         function resetAct1() {
             act1LinesData = [];
             act1ColoredSlices.clear();
             signalBox.innerText = '';
+            // 원형 배경 복원
+            document.querySelector('.pizza-bg') && (document.querySelector('.pizza-bg').style.display = '');
+            shapeBgLayer.innerHTML = '';
             buildSlidersUI();
             updateAct1Visuals();
         }
 
         function addCustomLine() {
             if (act1LinesData.length >= 6) return;
-            // 새 칼선 추가 시 기본 각도 분배
-            let newAngle = (act1LinesData.length * 45) % 180; 
+            let newAngle = (act1LinesData.length * 45) % 180;
             act1LinesData.push(newAngle);
             act1ColoredSlices.clear();
             signalBox.innerText = '';
@@ -424,36 +568,28 @@
             updateAct1Visuals();
         }
 
-        // 🎛️ 칼선 개수에 맞춰 슬라이더 막대를 그려주는 함수
         function buildSlidersUI() {
             sliderPanel.innerHTML = '';
             if (act1LinesData.length === 0) {
                 sliderPanel.innerHTML = `<div style="text-align:center; color:#888; font-size:0.8rem; padding:10px;">[+ 칼선 추가] 버튼을 누르면 조절 바가 나타납니다.</div>`;
                 return;
             }
-
             act1LinesData.forEach((angle, index) => {
                 const container = document.createElement('div');
                 container.className = 'slider-container';
-
                 const label = document.createElement('span');
                 label.className = 'slider-label';
                 label.innerText = `칼선 ${index + 1}`;
-
                 const slider = document.createElement('input');
                 slider.type = 'range';
                 slider.className = 'slider-input';
-                slider.min = '0';
-                slider.max = '180';
+                slider.min = '0'; slider.max = '180';
                 slider.value = Math.round(angle);
-
-                // 슬라이더를 움직이면 실시간으로 해당 칼선의 각도가 변함 (모바일 100% 작동)
                 slider.addEventListener('input', (e) => {
                     act1LinesData[index] = parseInt(e.target.value);
                     updateAct1Visuals();
                     signalBox.innerText = '';
                 });
-
                 container.appendChild(label);
                 container.appendChild(slider);
                 sliderPanel.appendChild(container);
@@ -468,16 +604,13 @@
             let allAngles = [];
             act1LinesData.forEach(a => { allAngles.push(a); allAngles.push(a + 180); });
             allAngles.sort((a, b) => a - b);
-
             let isPerfect = true;
             let firstDiff = (allAngles[1] - allAngles[0]);
-            
             for(let i=0; i<allAngles.length; i++) {
                 let d = allAngles[(i+1)%allAngles.length] - allAngles[i];
                 if(d<0) d+=360;
-                if(Math.abs(d - firstDiff) > 5) isPerfect = false; 
+                if(Math.abs(d - firstDiff) > 5) isPerfect = false;
             }
-
             if(isPerfect) {
                 signalBox.innerHTML = `<span class='signal-success'>🎉 완벽하게 크기가 같고 공평합니다!</span>`;
             } else {
@@ -488,36 +621,30 @@
         function updateAct1Visuals() {
             linesLayer.innerHTML = '';
             slicesLayer.innerHTML = '';
-
             let allAngles = [];
             act1LinesData.forEach(a => { allAngles.push(a); allAngles.push(a + 180); });
             allAngles.sort((a, b) => a - b);
-
             if (allAngles.length > 0) {
                 for (let i = 0; i < allAngles.length; i++) {
                     let start = allAngles[i];
                     let end = allAngles[(i + 1) % allAngles.length];
                     if (end < start) end += 360;
-
                     const pathD = getSlicePath(125, 125, 100, start, end);
                     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                     path.setAttribute("d", pathD);
                     path.setAttribute("class", "pizza-slice" + (act1ColoredSlices.has(i) ? " colored" : ""));
-
                     path.addEventListener('click', () => {
-                        if (act1ColoredSlices.has(i)) { act1ColoredSlices.delete(i); } 
-                        else { act1ColoredSlices.add(i); }
+                        if (act1ColoredSlices.has(i)) act1ColoredSlices.delete(i);
+                        else act1ColoredSlices.add(i);
                         updateAct1Visuals();
                     });
                     slicesLayer.appendChild(path);
                 }
             }
-
             act1LinesData.forEach((angle) => {
                 const rad = (angle - 90) * Math.PI / 180;
                 const x1 = 125 + 100 * Math.cos(rad); const y1 = 125 + 100 * Math.sin(rad);
                 const x2 = 125 - 100 * Math.cos(rad); const y2 = 125 - 100 * Math.sin(rad);
-
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
                 line.setAttribute("x1", x1); line.setAttribute("y1", y1);
                 line.setAttribute("x2", x2); line.setAttribute("y2", y2);
@@ -526,131 +653,455 @@
             });
         }
 
+        // ─── 활동3 리셋 ─────────────────────────────────────────
         function resetAct3QuizArea() {
             quizState = 'MAKING';
+            act3Shape = 'circle';
             act3TargetDivisions = 4;
             act3ColoredSlices.clear();
 
-            instructionText.innerHTML = "<b>[출제]</b> 몇 등분할지 고르고 색칠한 뒤, 정답 분수를 적고 출제 버튼을 누르세요.";
+            // 도형 선택 버튼 초기화
+            document.querySelectorAll('.btn-shape').forEach(b => b.classList.remove('active'));
+            document.getElementById('shape-btn-circle').classList.add('active');
+
+            instructionText.innerHTML = "<b>[출제]</b> 도형을 선택하고, 몇 등분할지 고른 뒤 색칠하고 출제 버튼을 누르세요.";
             guideBox.innerHTML = `🗣️ <b>질문 미션:</b> "내가 만든 문제를 보고 정답을 맞춰봐! 왜 그렇게 생각했어?"`;
-            
-            act3FractionArea.firstElementChild.innerText = "분수 입력: ";
+
             fractionVisualContainer.innerHTML = `
                 <div class="fraction-box">
                     <input type="number" id="input-numerator" min="1" max="12">
                     <div class="line"></div>
                     <input type="number" id="input-denominator" min="2" max="12">
-                </div>
-            `;
+                </div>`;
             document.getElementById('division-count').innerText = act3TargetDivisions;
 
             act1Controls.style.display = 'none';
+            act3ShapeSelector.style.display = 'flex';
             act3MakerControls.style.display = 'flex';
             act3FractionArea.style.display = 'flex';
             act3MakerButtons.style.display = 'flex';
             act3SolverControls.style.display = 'none';
-            
-            renderAct3Pizza(act3TargetDivisions);
+            shapeHint.innerText = '원: 2~12등분 모두 가능';
+
+            // 원 배경 복원
+            const bg = document.querySelector('.pizza-bg');
+            if (bg) bg.style.display = '';
+            shapeBgLayer.innerHTML = '';
+
+            renderAct3Shape(act3TargetDivisions);
         }
 
         function changeAct3Divisions(amount) {
             if (quizState === 'MAKING') {
-                act3TargetDivisions += amount;
-                if (act3TargetDivisions < 2) act3TargetDivisions = 2;
-                if (act3TargetDivisions > 12) act3TargetDivisions = 12;
+                act3TargetDivisions = snapToValid(act3TargetDivisions, amount, act3Shape);
                 document.getElementById('division-count').innerText = act3TargetDivisions;
                 act3ColoredSlices.clear();
-                renderAct3Pizza(act3TargetDivisions);
+                renderAct3Shape(act3TargetDivisions);
             } else if (quizState === 'MODE_B') {
-                act3SolverDivisions += amount;
-                if (act3SolverDivisions < 2) act3SolverDivisions = 2;
-                if (act3SolverDivisions > 12) act3SolverDivisions = 12;
+                act3SolverDivisions = snapToValid(act3SolverDivisions, amount, correctShape);
                 act3ColoredSlices.clear();
-                renderAct3Pizza(act3SolverDivisions);
+                renderAct3Shape(act3SolverDivisions);
             }
             signalBox.innerHTML = '';
         }
 
-        function renderAct3Pizza(divsCount) {
+        // ─── 도형 배경 그리기 ────────────────────────────────────
+        function drawShapeBackground(shape) {
+            const bg = document.querySelector('.pizza-bg');
+            shapeBgLayer.innerHTML = '';
+
+            if (shape === 'circle') {
+                if (bg) bg.style.display = '';
+                return;
+            }
+            if (bg) bg.style.display = 'none';
+
+            const pts = getShapePoints(shape);
+            const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            poly.setAttribute("points", pts.map(p => `${p[0]},${p[1]}`).join(' '));
+            poly.setAttribute("fill", "#fff3b0");
+            poly.setAttribute("stroke", "#e07a5f");
+            poly.setAttribute("stroke-width", "4");
+            poly.setAttribute("stroke-linejoin", "round");
+            shapeBgLayer.appendChild(poly);
+        }
+
+        // 도형의 꼭짓점 좌표 반환 (중심 125,125, 크기 ~100)
+        function getShapePoints(shape) {
+            const cx = 125, cy = 125;
+            if (shape === 'triangle') {
+                const r = 100;
+                return [0,1,2].map(i => {
+                    const a = (i * 120 - 90) * Math.PI / 180;
+                    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+                });
+            }
+            if (shape === 'square') {
+                const s = 90;
+                return [
+                    [cx - s, cy - s],
+                    [cx + s, cy - s],
+                    [cx + s, cy + s],
+                    [cx - s, cy + s]
+                ];
+            }
+            if (shape === 'hexagon') {
+                const r = 100;
+                return [0,1,2,3,4,5].map(i => {
+                    const a = (i * 60 - 90) * Math.PI / 180;
+                    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+                });
+            }
+            return [];
+        }
+
+        // ─── 도형별 렌더링 메인 함수 ────────────────────────────
+        function renderAct3Shape(divsCount) {
             slicesLayer.innerHTML = '';
             linesLayer.innerHTML = '';
+            drawShapeBackground(act3Shape === 'circle' || quizState === 'MAKING' ? act3Shape : correctShape);
 
+            const isInteractive = (quizState === 'MAKING' || quizState === 'MODE_B');
+            const shape = (quizState === 'MAKING') ? act3Shape : correctShape;
+
+            if (shape === 'circle') {
+                renderCircle(divsCount, isInteractive);
+            } else if (shape === 'triangle') {
+                renderTriangle(divsCount, isInteractive);
+            } else if (shape === 'square') {
+                renderSquare(divsCount, isInteractive);
+            } else if (shape === 'hexagon') {
+                renderHexagon(divsCount, isInteractive);
+            }
+        }
+
+        // ── 원 렌더링 ──
+        function renderCircle(divsCount, isInteractive) {
             const step = 360 / divsCount;
             for (let i = 0; i < divsCount; i++) {
                 let start = i * step;
                 let end = (i + 1) * step;
-
                 const pathD = getSlicePath(125, 125, 100, start, end);
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 path.setAttribute("d", pathD);
                 path.setAttribute("class", "pizza-slice" + (act3ColoredSlices.has(i) ? " colored" : ""));
-                
-                if (quizState === 'MAKING' || quizState === 'MODE_B') {
-                    path.addEventListener('click', () => {
-                        if (act3ColoredSlices.has(i)) { act3ColoredSlices.delete(i); } 
-                        else { act3ColoredSlices.add(i); }
-                        renderAct3Pizza(divsCount);
-                        signalBox.innerHTML = '';
-                    });
-                }
+                if (isInteractive) addSliceClick(path, i, divsCount);
                 slicesLayer.appendChild(path);
 
                 const rad = (start - 90) * Math.PI / 180;
-                const lx = 125 + 100 * Math.cos(rad); const ly = 125 + 100 * Math.sin(rad);
+                const lx = 125 + 100 * Math.cos(rad), ly = 125 + 100 * Math.sin(rad);
                 const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", 125); line.setAttribute("y1", 125); line.setAttribute("x2", lx); line.setAttribute("y2", ly);
+                line.setAttribute("x1", 125); line.setAttribute("y1", 125);
+                line.setAttribute("x2", lx); line.setAttribute("y2", ly);
                 line.setAttribute("class", "grid-line");
                 linesLayer.appendChild(line);
             }
         }
 
+        // ── 삼각형 렌더링 ──
+        // 삼각형은 3의 배수로 등분
+        // 3등분: 중심에서 각 꼭짓점으로 선 3개 (부채꼴형 삼각 조각)
+        // 6등분: 각 변의 중점 + 중심 연결
+        // 9등분: 3×3 바리센트릭 분할
+        // 12등분: 각 변을 4등분 후 내부 연결
+        function renderTriangle(divsCount, isInteractive) {
+            const pts = getShapePoints('triangle'); // 꼭짓점 3개
+            const cx = 125, cy = 125;
+
+            if (divsCount === 3) {
+                // 중심에서 꼭짓점 3개로 선 → 3조각
+                const subPts = [
+                    [cx, cy, pts[0][0], pts[0][1], pts[1][0], pts[1][1]],
+                    [cx, cy, pts[1][0], pts[1][1], pts[2][0], pts[2][1]],
+                    [cx, cy, pts[2][0], pts[2][1], pts[0][0], pts[0][1]],
+                ];
+                subPts.forEach((sp, i) => {
+                    addPolySlice([[sp[0],sp[1]],[sp[2],sp[3]],[sp[4],sp[5]]], i, isInteractive, divsCount);
+                });
+                // 선
+                pts.forEach(p => addLine(cx, cy, p[0], p[1]));
+            } else if (divsCount === 6) {
+                // 각 변의 중점 계산
+                const mids = [
+                    midpoint(pts[0], pts[1]),
+                    midpoint(pts[1], pts[2]),
+                    midpoint(pts[2], pts[0])
+                ];
+                // 6조각: 중심 - 꼭짓점 - 중점 형태
+                const pieces = [
+                    [pts[0], mids[0], cx,cy],
+                    [mids[0], pts[1], cx,cy],
+                    [pts[1], mids[1], cx,cy],
+                    [mids[1], pts[2], cx,cy],
+                    [pts[2], mids[2], cx,cy],
+                    [mids[2], pts[0], cx,cy],
+                ];
+                pieces.forEach((pc, i) => {
+                    const poly = pc.map(p => Array.isArray(p) ? p : [p, pc[pc.indexOf(p)+1]]);
+                    // 재배열
+                    const tri = [
+                        Array.isArray(pc[0]) ? pc[0] : [pc[0], pc[1]],
+                        Array.isArray(pc[1]) ? pc[1] : [pc[1], pc[2]],
+                        [cx, cy]
+                    ];
+                    addPolySlice(tri, i, isInteractive, divsCount);
+                });
+                // 선: 중심 → 중점
+                mids.forEach(m => addLine(cx, cy, m[0], m[1]));
+                // 선: 중심 → 꼭짓점
+                pts.forEach(p => addLine(cx, cy, p[0], p[1]));
+            } else if (divsCount === 9) {
+                // 무게중심 좌표계: 각 변을 3등분하는 점
+                renderBarycentricGrid(pts, 3, isInteractive);
+            } else if (divsCount === 12) {
+                renderBarycentricGrid(pts, 4, isInteractive);
+            }
+        }
+
+        // 삼각형 내부를 n×n 바리센트릭 격자로 나눔
+        // n=3 → 9등분(작은 삼각형 9개), n=4 → 16등분이지만 12등분으로 표시
+        function renderBarycentricGrid(pts, n, isInteractive) {
+            // bary(i,j): i = pts[1] 방향 비율, j = pts[2] 방향 비율
+            const bary = (i, j) => [
+                pts[0][0]*((n-i-j)/n) + pts[1][0]*(i/n) + pts[2][0]*(j/n),
+                pts[0][1]*((n-i-j)/n) + pts[1][1]*(i/n) + pts[2][1]*(j/n)
+            ];
+
+            // ── 조각 그리기 ──
+            let sliceIdx = 0;
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n - i; j++) {
+                    // 정방향 삼각형 (꼭짓점이 위를 향함)
+                    const p0 = bary(i,   j);
+                    const p1 = bary(i+1, j);
+                    const p2 = bary(i,   j+1);
+                    addPolySlice([p0, p1, p2], sliceIdx++, isInteractive, n * n);
+
+                    // 역방향 삼각형 (꼭짓점이 아래를 향함)
+                    if (i + j + 2 <= n) {
+                        const q0 = bary(i+1, j);
+                        const q1 = bary(i+1, j+1);
+                        const q2 = bary(i,   j+1);
+                        addPolySlice([q0, q1, q2], sliceIdx++, isInteractive, n * n);
+                    }
+                }
+            }
+
+            // ── 격자선: 3방향을 각각 독립적으로 그림 ──
+            // 방향 A: pts[0]→pts[1] 방향 평행선 (j 고정, i 변화)
+            for (let j = 0; j <= n; j++) {
+                const maxI = n - j;
+                if (maxI <= 0) continue;
+                const start = bary(0, j);
+                const end   = bary(maxI, j);
+                addLine(start[0], start[1], end[0], end[1]);
+            }
+
+            // 방향 B: pts[0]→pts[2] 방향 평행선 (i 고정, j 변화)
+            for (let i = 0; i <= n; i++) {
+                const maxJ = n - i;
+                if (maxJ <= 0) continue;
+                const start = bary(i, 0);
+                const end   = bary(i, maxJ);
+                addLine(start[0], start[1], end[0], end[1]);
+            }
+
+            // 방향 C: pts[1]→pts[2] 방향 평행선 (i+j 합 고정)
+            for (let s = 0; s <= n; s++) {
+                // i+j = s 인 점들을 잇는 선: bary(s,0) → bary(0,s)
+                if (s === 0 || s === n) continue; // 꼭짓점은 이미 외곽선에 포함
+                const start = bary(s, 0);
+                const end   = bary(0, s);
+                addLine(start[0], start[1], end[0], end[1]);
+            }
+        }
+
+        // ── 사각형 렌더링 ──
+        function renderSquare(divsCount, isInteractive) {
+            const s = 90; // 반 변 길이
+            const cx = 125, cy = 125;
+            const x0 = cx - s, y0 = cy - s;
+            const w = s * 2, h = s * 2;
+
+            // 행/열 분할 방식
+            let rows, cols;
+            if (divsCount === 2) { rows = 1; cols = 2; }
+            else if (divsCount === 3) { rows = 1; cols = 3; }
+            else if (divsCount === 4) { rows = 2; cols = 2; }
+            else if (divsCount === 6) { rows = 2; cols = 3; }
+            else if (divsCount === 9) { rows = 3; cols = 3; }
+            else if (divsCount === 12) { rows = 3; cols = 4; }
+            else { rows = 1; cols = divsCount; }
+
+            const cellW = w / cols;
+            const cellH = h / rows;
+
+            let idx = 0;
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const rx = x0 + c * cellW;
+                    const ry = y0 + r * cellH;
+                    const rectPts = [
+                        [rx, ry], [rx + cellW, ry],
+                        [rx + cellW, ry + cellH], [rx, ry + cellH]
+                    ];
+                    addPolySlice(rectPts, idx++, isInteractive, divsCount);
+                }
+            }
+            // 격자선
+            for (let r = 1; r < rows; r++) {
+                addLine(x0, y0 + r*cellH, x0+w, y0 + r*cellH);
+            }
+            for (let c = 1; c < cols; c++) {
+                addLine(x0 + c*cellW, y0, x0 + c*cellW, y0+h);
+            }
+        }
+
+        // ── 육각형 렌더링 ──
+        function renderHexagon(divsCount, isInteractive) {
+            const cx = 125, cy = 125, r = 100;
+            const pts = getShapePoints('hexagon'); // 6꼭짓점
+
+            if (divsCount === 2) {
+                // 위 반쪽 / 아래 반쪽 (수평 분할)
+                const top = [pts[0], pts[1], pts[2], [cx + r*Math.cos(Math.PI/2), cy], [cx - r*Math.cos(Math.PI/2), cy]];
+                // 단순하게: 중앙 수평선으로 분할
+                const mid1 = midpoint(pts[0], pts[5]); // 왼쪽 중간
+                const mid2 = midpoint(pts[2], pts[3]); // 오른쪽 중간
+                addPolySlice([pts[5], pts[0], pts[1], pts[2], mid2, mid1], 0, isInteractive, 2);
+                addPolySlice([mid1, mid2, pts[3], pts[4]], 1, isInteractive, 2);
+                addLine(mid1[0], mid1[1], mid2[0], mid2[1]);
+            } else if (divsCount === 3) {
+                // 중심에서 120도마다 꼭짓점 짝 연결 (마름모 3개)
+                addPolySlice([cx,cy, pts[0], pts[1], pts[2]], 0, isInteractive, 3, true);
+                addPolySlice([cx,cy, pts[2], pts[3], pts[4]], 1, isInteractive, 3, true);
+                addPolySlice([cx,cy, pts[4], pts[5], pts[0]], 2, isInteractive, 3, true);
+                addLine(cx, cy, pts[0][0], pts[0][1]);
+                addLine(cx, cy, pts[2][0], pts[2][1]);
+                addLine(cx, cy, pts[4][0], pts[4][1]);
+            } else if (divsCount === 6) {
+                // 중심 → 각 꼭짓점: 6개 정삼각형
+                for (let i = 0; i < 6; i++) {
+                    addPolySlice([[cx,cy], pts[i], pts[(i+1)%6]], i, isInteractive, 6);
+                    addLine(cx, cy, pts[i][0], pts[i][1]);
+                }
+            } else if (divsCount === 12) {
+                // 각 변의 중점 + 중심 → 12 조각
+                const mids = pts.map((p, i) => midpoint(p, pts[(i+1)%6]));
+                for (let i = 0; i < 6; i++) {
+                    // 삼각형1: 중심, 꼭짓점i, 중점i
+                    addPolySlice([[cx,cy], pts[i], mids[i]], i*2, isInteractive, 12);
+                    // 삼각형2: 중심, 중점i, 꼭짓점i+1
+                    addPolySlice([[cx,cy], mids[i], pts[(i+1)%6]], i*2+1, isInteractive, 12);
+                    addLine(cx, cy, pts[i][0], pts[i][1]);
+                    addLine(cx, cy, mids[i][0], mids[i][1]);
+                }
+            }
+        }
+
+        // ─── 공통 헬퍼 ─────────────────────────────────────────
+        function midpoint(a, b) { return [(a[0]+b[0])/2, (a[1]+b[1])/2]; }
+
+        function addPolySlice(polyPts, idx, isInteractive, total, centerFirst) {
+            // polyPts: [[x,y], ...] 또는 [cx,cy,x,y,...] 혼합 (centerFirst)
+            let pts;
+            if (centerFirst) {
+                pts = polyPts; // already [[cx,cy], p1, p2, ...]
+            } else if (!Array.isArray(polyPts[0])) {
+                // flat: [cx,cy, x1,y1, ...]
+                pts = [];
+                for (let i = 0; i < polyPts.length; i+=2) pts.push([polyPts[i], polyPts[i+1]]);
+            } else {
+                pts = polyPts;
+            }
+
+            const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            poly.setAttribute("points", pts.map(p => `${p[0]},${p[1]}`).join(' '));
+            poly.setAttribute("class", "pizza-slice" + (act3ColoredSlices.has(idx) ? " colored" : ""));
+            if (isInteractive) {
+                poly.addEventListener('click', () => {
+                    if (act3ColoredSlices.has(idx)) act3ColoredSlices.delete(idx);
+                    else act3ColoredSlices.add(idx);
+                    renderAct3Shape(quizState === 'MODE_B' ? act3SolverDivisions : act3TargetDivisions);
+                    signalBox.innerHTML = '';
+                });
+            }
+            slicesLayer.appendChild(poly);
+        }
+
+        function addLine(x1, y1, x2, y2) {
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", x1); line.setAttribute("y1", y1);
+            line.setAttribute("x2", x2); line.setAttribute("y2", y2);
+            line.setAttribute("class", "grid-line");
+            linesLayer.appendChild(line);
+        }
+
+        function addSliceClick(el, i, total) {
+            el.addEventListener('click', () => {
+                if (act3ColoredSlices.has(i)) act3ColoredSlices.delete(i);
+                else act3ColoredSlices.add(i);
+                renderAct3Shape(quizState === 'MODE_B' ? act3SolverDivisions : act3TargetDivisions);
+                signalBox.innerHTML = '';
+            });
+        }
+
+        // ─── 출제 ───────────────────────────────────────────────
         function publishQuiz(type) {
             const numVal = parseInt(document.getElementById('input-numerator').value);
             const denVal = parseInt(document.getElementById('input-denominator').value);
-            correctColoredCount = act3ColoredSlices.size;
+            const coloredCount = act3ColoredSlices.size;
 
-            if (isNaN(numVal) || isNaN(denVal) || correctColoredCount === 0) {
+            if (isNaN(numVal) || isNaN(denVal) || coloredCount === 0) {
                 alert("영역을 색칠하고 정답 분수 칸을 채워주세요!");
                 return;
             }
 
             correctNumerator = numVal;
             correctDenominator = denVal;
+            correctShape = act3Shape;
             quizState = type === 'A' ? 'MODE_A' : 'MODE_B';
 
+            act3ShapeSelector.style.display = 'none';
             act3MakerControls.style.display = 'none';
             act3MakerButtons.style.display = 'none';
             act3SolverControls.style.display = 'flex';
+            shapeHint.innerText = '';
             signalBox.innerHTML = '';
 
+            const shapeLabel = {circle:'원', triangle:'삼각형', square:'사각형', hexagon:'육각형'}[correctShape];
+
             if (quizState === 'MODE_A') {
-                instructionText.innerHTML = "🎯 <b>[도형 문제]</b> 짝꿍이 만든 조각을 보고, 알맞은 분수를 채운 뒤 [정답 확인]을 누르세요!";
+                instructionText.innerHTML = `🎯 <b>[도형 문제]</b> 짝꿍이 만든 <b>${shapeLabel}</b> 조각을 보고, 알맞은 분수를 채운 뒤 [정답 확인]을 누르세요!`;
                 fractionVisualContainer.innerHTML = `
                     <div class="fraction-box">
                         <input type="number" id="input-numerator" min="1" max="12">
                         <div class="line"></div>
                         <input type="number" id="input-denominator" min="2" max="12">
-                    </div>
-                `;
+                    </div>`;
                 solverCalcBox.style.display = 'none';
-                renderAct3Pizza(act3TargetDivisions); 
+                // 도형 그대로 유지 (색칠 유지, 클릭 불가)
+                renderAct3Shape(act3TargetDivisions);
+                // 클릭 이벤트 제거 (display only)
+                slicesLayer.querySelectorAll('.pizza-slice').forEach(el => {
+                    el.style.pointerEvents = 'none';
+                });
             } else {
-                instructionText.innerHTML = "🎯 <b>[분수 문제]</b> 아래 분수를 확인하고, <b>도형 조절(+/-)과 색칠 칸 터치</b>로 피자를 완성하세요!";
-                act3FractionArea.firstElementChild.innerText = "문제 분수: ";
+                instructionText.innerHTML = `🎯 <b>[분수 문제]</b> 아래 분수를 보고, <b>${shapeLabel}</b>를 조절하고 색칠해서 완성하세요!`;
                 fractionVisualContainer.innerHTML = `
                     <div class="fraction-box quiz-fraction-display">
                         <div>${correctNumerator}</div>
                         <div class="line" style="width:20px; height:2px; background:#334155;"></div>
                         <div>${correctDenominator}</div>
-                    </div>
-                `;
+                    </div>`;
                 solverCalcBox.style.display = 'block';
-                act3SolverDivisions = 4;
+                act3SolverDivisions = VALID_DIVISIONS[correctShape][0];
                 act3ColoredSlices.clear();
-                renderAct3Pizza(act3SolverDivisions);
+                renderAct3Shape(act3SolverDivisions);
             }
         }
 
+        // ─── 정답 확인 ──────────────────────────────────────────
         function checkAct3Answer() {
             let isCorrect = false;
             if (quizState === 'MODE_A') {
@@ -660,7 +1111,6 @@
             } else if (quizState === 'MODE_B') {
                 if (act3SolverDivisions === correctDenominator && act3ColoredSlices.size === correctNumerator) isCorrect = true;
             }
-
             if (isCorrect) {
                 signalBox.innerHTML = "<span class='signal-success'>🎉 정답입니다! 하이파이브 하세요! 🎉</span>";
             } else {
@@ -668,8 +1118,10 @@
             }
         }
 
+        // ─── 원 슬라이스 경로 ────────────────────────────────────
         function getSlicePath(cx, cy, r, startAngle, endAngle) {
-            const startRad = (startAngle - 90) * Math.PI / 180; const endRad = (endAngle - 90) * Math.PI / 180;
+            const startRad = (startAngle - 90) * Math.PI / 180;
+            const endRad = (endAngle - 90) * Math.PI / 180;
             const x1 = cx + r * Math.cos(startRad); const y1 = cy + r * Math.sin(startRad);
             const x2 = cx + r * Math.cos(endRad); const y2 = cy + r * Math.sin(endRad);
             const largeArcFlag = (endAngle - startAngle) > 180 ? 1 : 0;
